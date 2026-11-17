@@ -6,8 +6,11 @@ does not access another service database.
 ## Run locally
 
 1. Start PostgreSQL 16 with database `product_db`.
-2. Set the variables in `.env.example` in the environment.
+2. Copy `.env.example` to `.env` and set the real database password and JWT secret.
 3. Run `./gradlew bootRun`.
+
+Spring Boot loads the local `.env` file automatically. The file is ignored by
+Git. Alternatively, export the variables in the shell before starting.
 
 Flyway applies the schema migration automatically. Hibernate validates the
 schema and does not create tables.
