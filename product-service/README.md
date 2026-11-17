@@ -29,11 +29,14 @@ ADMIN writes:
 - `POST`, `PUT`, and `DELETE /api/v1/products[/{id}]`
 - `POST`, `PUT`, and `DELETE /api/v1/categories[/{id}]`
 
-Write requests require a locally validated JWT with a `role` claim of `ADMIN`.
+Write requests require a locally validated HS256 JWT issued by User Service.
+The token must contain issuer `user-service`, UUID `sub`, `role` (`USER` or
+`ADMIN`), `iat`, and `exp` claims. Product Service maps the role claim to
+`ROLE_USER` or `ROLE_ADMIN`.
 The Cart Service contracts are `GET /api/v1/products/{id}` and
 `POST /api/v1/products/bulk`.
 
 ## Configuration
 
-`SERVER_PORT`, `DB_URL`, `DB_USER`, `DB_PASSWORD`, and `JWT_SECRET` are supplied
+`SERVER_PORT`, `DB_URL`, `DB_USER`, `DB_PASSWORD`, `JWT_SECRET`, and `JWT_ISSUER` are supplied
 through environment variables. Secrets must not be committed.

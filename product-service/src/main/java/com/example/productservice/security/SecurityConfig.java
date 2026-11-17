@@ -3,9 +3,7 @@ package com.example.productservice.security;
 import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.List;
-import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.convert.converter.Converter;
@@ -18,6 +16,12 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
+import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
+import org.springframework.security.oauth2.jwt.JwtValidators;
+import org.springframework.security.oauth2.core.OAuth2Error;
+import org.springframework.security.oauth2.core.OAuth2TokenValidator;
+import org.springframework.security.oauth2.core.OAuth2TokenValidatorResult;
+import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.access.AccessDeniedHandler;
@@ -89,15 +93,46 @@ public class SecurityConfig {
 	}
 
 	@Bean
-	JwtDecoder jwtDecoder(@Value("${JWT_SECRET:}") String secret) {
+	JwtDecoder jwtDecoder(@Value("${jwt.secret:}") String secret,
+			@Value("${jwt.issuer:user-service}") String issuer) {
 		if (secret.isBlank()) {
 			throw new IllegalStateException("JWT_SECRET must be configured");
 		}
-		SecretKey key = new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256");
-		return NimbusJwtDecoder.withSecretKey(key).build();
+		var key = new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256");
+		var decoder = NimbusJwtDecoder.withSecretKey(key).macAlgorithm(MacAlgorithm.HS256).build();
+		decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(
+				JwtValidators.createDefaultWithIssuer(issuer), this::validateRequiredClaims));
+		return decoder;
 	}
 
-	private Converter<Jwt, ? extends AbstractAuthenticationToken> jwtAuthenticationConverter() {
+	private OAuth2TokenValidatorResult validateRequiredClaims(Jwt jwt) {
+		if (jwt.getSubject() == null || !isUuid(jwt.getSubject())) {
+			return OAuth2TokenValidatorResult.failure(new OAuth2Error("invalid_token", "JWT sub must be a UUID", null));
+		}
+		String role = jwt.getClaimAsString("role");
+		if (!"USER".equals(role) && !"ADMIN".equals(role)) {
+			return OAuth2TokenValidatorResult.failure(new OAuth2Error("invalid_token",
+					"JWT role must be USER or ADMIN", null));
+		}
+		if (jwt.getIssuedAt() == null) {
+			return OAuth2TokenValidatorResult.failure(new OAuth2Error("invalid_token",
+					"JWT iat is required", null));
+		}
+		return OAuth2TokenValidatorResult.success();
+	}
+
+	private boolean isUuid(String value) {
+		try {
+			java.util.UUID.fromString(value);
+			return true;
+		}
+		catch (IllegalArgumentException exception) {
+			return false;
+		}
+	}
+
+	@Bean
+	Converter<Jwt, ? extends AbstractAuthenticationToken> jwtAuthenticationConverter() {
 		JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
 		converter.setJwtGrantedAuthoritiesConverter(new RoleClaimConverter());
 		return converter;
