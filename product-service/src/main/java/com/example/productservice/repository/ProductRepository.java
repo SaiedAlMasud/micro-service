@@ -16,9 +16,9 @@ public interface ProductRepository extends JpaRepository<Product, UUID> {
 	@Query("""
 			select p from Product p
 			where p.status = :status
-			and (:categoryId is null or p.category.id = :categoryId)
-			and (:query is null or lower(p.name) like lower(concat('%', :query, '%'))
-				or lower(coalesce(p.brand, '')) like lower(concat('%', :query, '%')))
+			and (cast(:categoryId as java.util.UUID) is null or p.category.id = :categoryId)
+			and (cast(:query as string) is null or lower(p.name) like lower(concat('%', cast(:query as string), '%'))
+				or lower(coalesce(p.brand, '')) like lower(concat('%', cast(:query as string), '%')))
 			""")
 	Page<Product> search(@Param("status") ProductStatus status, @Param("categoryId") UUID categoryId,
 			@Param("query") String query, Pageable pageable);

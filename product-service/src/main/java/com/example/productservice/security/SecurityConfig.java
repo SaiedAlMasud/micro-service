@@ -52,7 +52,7 @@ public class SecurityConfig {
 						.requestMatchers("/api/v1/products", "/api/v1/products/*", "/api/v1/categories",
 								"/api/v1/categories/*")
 						.hasRole("ADMIN")
-						.requestMatchers("/actuator/health", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
+						.requestMatchers("/actuator/health", "/error", "/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
 						.anyRequest().authenticated())
 				.exceptionHandling(errors -> errors
 						.authenticationEntryPoint(jsonError(HttpServletResponse.SC_UNAUTHORIZED, "UNAUTHORIZED"))

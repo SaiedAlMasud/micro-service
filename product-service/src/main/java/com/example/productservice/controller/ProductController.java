@@ -34,7 +34,8 @@ public class ProductController {
 
 	@GetMapping
 	public Page<ProductResponse> search(@RequestParam(required = false) UUID categoryId,
-			@RequestParam(required = false) String q, @PageableDefault(size = 20) Pageable pageable) {
+			@RequestParam(required = false) String q,
+			@org.springdoc.core.annotations.ParameterObject @PageableDefault(size = 20) Pageable pageable) {
 		return service.search(categoryId, q, pageable);
 	}
 
