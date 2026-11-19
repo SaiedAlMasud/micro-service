@@ -40,7 +40,7 @@ import java.util.UUID;
 @EnableMethodSecurity
 public class SecurityConfig {
 
-    @Value("${FRONTEND_ORIGIN:}")
+    @Value("${FRONTEND_ORIGIN:http://localhost:5173}")
     private String frontendOrigin;
 
     @Bean
@@ -175,4 +175,3 @@ public class SecurityConfig {
         }
     }
 }
-

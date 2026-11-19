@@ -38,3 +38,11 @@ dependencies {
 tasks.named('test') {
 	useJUnitPlatform()
 }
+
+tasks.named('bootJar') {
+	mainClass = 'com.example.cart_service.CartServiceApplication'
+}
+
+tasks.named('bootRun') {
+	mainClass = 'com.example.cart_service.CartServiceApplication'
+}

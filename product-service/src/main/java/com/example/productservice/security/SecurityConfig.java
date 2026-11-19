@@ -38,7 +38,7 @@ import org.springframework.http.HttpMethod;
 @EnableMethodSecurity
 public class SecurityConfig {
 
-	@Value("${FRONTEND_ORIGIN:}")
+	@Value("${FRONTEND_ORIGIN:http://localhost:5173}")
 	private String frontendOrigin;
 
 	@Bean
@@ -67,7 +67,8 @@ public class SecurityConfig {
 		if (!frontendOrigin.isBlank()) {
 			configuration.setAllowedOrigins(List.of(frontendOrigin));
 			configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-			configuration.setAllowedHeaders(List.of("Authorization", "Content-Type"));
+			configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept"));
+			configuration.setAllowCredentials(true);
 		}
 		UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
 		source.registerCorsConfiguration("/**", configuration);
