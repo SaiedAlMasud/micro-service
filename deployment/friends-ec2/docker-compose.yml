@@ -1,0 +1,101 @@
+services:
+  service-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_USER: ${POSTGRES_ADMIN_USER:?Set POSTGRES_ADMIN_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PASSWORD:?Set POSTGRES_ADMIN_PASSWORD}
+      PRODUCT_DB_NAME: ${PRODUCT_DB_NAME:?Set PRODUCT_DB_NAME}
+      PRODUCT_DB_USER: ${PRODUCT_DB_USER:?Set PRODUCT_DB_USER}
+      PRODUCT_DB_PASSWORD: ${PRODUCT_DB_PASSWORD:?Set PRODUCT_DB_PASSWORD}
+      CART_DB_NAME: ${CART_DB_NAME:?Set CART_DB_NAME}
+      CART_DB_USER: ${CART_DB_USER:?Set CART_DB_USER}
+      CART_DB_PASSWORD: ${CART_DB_PASSWORD:?Set CART_DB_PASSWORD}
+    volumes:
+      - service_data:/var/lib/postgresql/data
+      - ./postgres-init.sh:/docker-entrypoint-initdb.d/01-init.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks: [backend]
+    mem_limit: 384m
+    logging: &default-logging
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+  product-service:
+    image: ${PRODUCT_IMAGE_REPOSITORY:-saiedalmasud1/product-service}:${PRODUCT_IMAGE_TAG:?Set PRODUCT_IMAGE_TAG}
+    environment:
+      SERVER_PORT: 8082
+      DB_URL: ${PRODUCT_DB_URL:?Set PRODUCT_DB_URL}
+      DB_USER: ${PRODUCT_DB_USER:?Set PRODUCT_DB_USER}
+      DB_PASSWORD: ${PRODUCT_DB_PASSWORD:?Set PRODUCT_DB_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET}
+      JWT_ISSUER: ${JWT_ISSUER:-user-service}
+      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:?Set FRONTEND_ORIGIN}
+    depends_on:
+      service-db:
+        condition: service_healthy
+    expose: ["8082"]
+    restart: unless-stopped
+    networks: [backend]
+    mem_limit: 384m
+    logging: *default-logging
+
+  cart-service:
+    image: ${CART_IMAGE_REPOSITORY:-saiedalmasud1/cart-service}:${CART_IMAGE_TAG:?Set CART_IMAGE_TAG}
+    environment:
+      SERVER_PORT: 8083
+      DB_URL: ${CART_DB_URL:?Set CART_DB_URL}
+      DB_USER: ${CART_DB_USER:?Set CART_DB_USER}
+      DB_PASSWORD: ${CART_DB_PASSWORD:?Set CART_DB_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET}
+      JWT_ISSUER: ${JWT_ISSUER:-user-service}
+      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:?Set FRONTEND_ORIGIN}
+      PRODUCT_SERVICE_URL: ${PRODUCT_SERVICE_URL:-http://product-service:8082}
+      PRODUCT_CONNECT_TIMEOUT_MS: ${PRODUCT_CONNECT_TIMEOUT_MS:-2000}
+      PRODUCT_READ_TIMEOUT_MS: ${PRODUCT_READ_TIMEOUT_MS:-3000}
+    depends_on:
+      service-db:
+        condition: service_healthy
+      product-service:
+        condition: service_healthy
+    expose: ["8083"]
+    restart: unless-stopped
+    networks: [backend]
+    mem_limit: 384m
+    logging: *default-logging
+
+  ingress:
+    image: nginx:1.29-alpine
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./proxy_params:/etc/nginx/proxy_params:ro
+    ports:
+      - "80:80"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    depends_on:
+      product-service:
+        condition: service_healthy
+      cart-service:
+        condition: service_healthy
+    restart: unless-stopped
+    networks: [backend]
+    mem_limit: 64m
+    logging: *default-logging
+
+volumes:
+  service_data:
+
+networks:
+  backend:
+    driver: bridge

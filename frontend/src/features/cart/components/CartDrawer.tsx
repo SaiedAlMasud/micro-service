@@ -16,14 +16,22 @@ export function CartDrawer({ open, onClose, refreshKey }: CartDrawerProps) {
   const [cart, setCart] = useState<CartResponse | null>(null)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  const [loading, setLoading] = useState(false)
 
   useEffect(() => {
     if (!open || !isAuthenticated) return
     let active = true
+    setLoading(true)
+    setError('')
     fetchCart().then((value) => {
       if (active) setCart(value)
     }).catch((reason: { message?: string }) => {
-      if (active) setError(reason.message ?? 'Unable to load the cart')
+      if (active) {
+        setCart(null)
+        setError(reason.message ?? 'Unable to load the cart')
+      }
+    }).finally(() => {
+      if (active) setLoading(false)
     })
     return () => { active = false }
   }, [open, isAuthenticated, refreshKey])
@@ -71,6 +79,8 @@ export function CartDrawer({ open, onClose, refreshKey }: CartDrawerProps) {
         <p className="cart-message">Sign in to use your bag.</p>
       ) : error ? (
         <p className="cart-message" role="alert">{error}</p>
+      ) : loading ? (
+        <p className="cart-message" aria-live="polite">Loading bag...</p>
       ) : !cart || cart.items.length === 0 ? (
         <p className="cart-message">Your bag is empty.</p>
       ) : (

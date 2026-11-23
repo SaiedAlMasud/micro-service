@@ -11,23 +11,31 @@ export function HomePage() {
   const [page, setPage] = useState(0)
   const [products, setProducts] = useState<ProductPage | null>(null)
   const [error, setError] = useState('')
+  const [loadingCategories, setLoadingCategories] = useState(true)
+  const [loadingProducts, setLoadingProducts] = useState(true)
   const [cartRefresh, setCartRefresh] = useState(0)
 
   useEffect(() => {
-    fetchCategories().then(setCategories).catch((reason: { message?: string }) => {
-      setError(reason.message ?? 'Unable to load categories')
-    })
+    fetchCategories()
+      .then(setCategories)
+      .catch((reason: { message?: string }) => {
+        setCategories([])
+        setError(reason.message ?? 'Unable to load categories')
+      })
+      .finally(() => setLoadingCategories(false))
   }, [])
 
   useEffect(() => {
+    setLoadingProducts(true)
     fetchProducts({
       categoryId: categoryId || undefined,
       q: query.trim() || undefined,
       page,
       size: 20,
     }).then(setProducts).catch((reason: { message?: string }) => {
+      setProducts(null)
       setError(reason.message ?? 'Unable to load products')
-    })
+    }).finally(() => setLoadingProducts(false))
   }, [categoryId, query, page])
 
   const categoryName = (id: string) => categories.find((category) => category.id === id)?.name
@@ -53,7 +61,7 @@ export function HomePage() {
         <div className="category-bar" aria-label="Product categories">
           <button type="button" className={!categoryId ? 'button button-filter is-active' : 'button button-filter'}
             onClick={() => { setCategoryId(''); setPage(0) }}>All</button>
-          {categories.map((category) => (
+          {!loadingCategories && categories.map((category) => (
             <button type="button" key={category.id}
               className={categoryId === category.id ? 'button button-filter is-active' : 'button button-filter'}
               onClick={() => { setCategoryId(category.id); setPage(0) }}>{category.name}</button>
@@ -63,6 +71,12 @@ export function HomePage() {
       </section>
 
       {error && <p className="form-alert catalog-error" role="alert">{error}</p>}
+      {loadingProducts && !error && (
+        <section className="simple-state" aria-live="polite">
+          <p className="eyebrow">Catalog</p>
+          <h2>Loading products</h2>
+        </section>
+      )}
       {products && products.content.length === 0 && !error && (
         <section className="simple-state">
           <p className="eyebrow">Catalog</p>

@@ -39,6 +39,9 @@ public class AuthService {
     @Value("${jwt.refresh-token-expiry-seconds:604800}")
     private long refreshTokenExpirySeconds;
 
+    @Value("${jwt.issuer:user-service}")
+    private String jwtIssuer;
+
     public AuthService(UserRepository userRepository,
                        RefreshTokenRepository refreshTokenRepository,
                        PasswordEncoder passwordEncoder,
@@ -164,7 +167,7 @@ public class AuthService {
     private String buildAccessToken(User user) {
         Instant now = Instant.now();
         JwtClaimsSet claims = JwtClaimsSet.builder()
-                .issuer("user-service")
+                .issuer(jwtIssuer)
                 .issuedAt(now)
                 .expiresAt(now.plus(accessTokenExpirySeconds, ChronoUnit.SECONDS))
                 .subject(user.getId().toString())
@@ -201,4 +204,3 @@ public class AuthService {
         return r;
     }
 }
-

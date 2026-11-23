@@ -35,7 +35,9 @@ export function CartProvider({ children }: PropsWithChildren) {
   }
 
   const quantityForProduct = (productId: string) =>
-    cart?.items.find((item) => item.productId === productId)?.quantity ?? 0
+    (Array.isArray(cart?.items)
+      ? cart.items.find((item) => item.productId === productId)?.quantity
+      : 0) ?? 0
 
   return (
     <CartContext.Provider value={{

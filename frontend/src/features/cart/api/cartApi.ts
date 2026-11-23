@@ -1,19 +1,27 @@
 import { cartApi } from '../../../lib/api/clients'
 import type { CartResponse } from '../types/cart'
 
+function parseCart(data: unknown): CartResponse {
+  const cart = data as Partial<CartResponse>
+  if (!cart || !Array.isArray(cart.items)) {
+    throw new Error('Unexpected cart response from the server')
+  }
+  return cart as CartResponse
+}
+
 export async function fetchCart() {
   const response = await cartApi.get<CartResponse>('/api/v1/cart')
-  return response.data
+  return parseCart(response.data)
 }
 
 export async function addCartItem(productId: string, quantity: number) {
   const response = await cartApi.post<CartResponse>('/api/v1/cart/items', { productId, quantity })
-  return response.data
+  return parseCart(response.data)
 }
 
 export async function updateCartItem(itemId: string, quantity: number) {
   const response = await cartApi.put<CartResponse>(`/api/v1/cart/items/${itemId}`, { quantity })
-  return response.data
+  return parseCart(response.data)
 }
 
 export async function removeCartItem(itemId: string) {

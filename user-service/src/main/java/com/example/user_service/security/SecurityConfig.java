@@ -37,6 +37,9 @@ public class SecurityConfig {
     @Value("${jwt.secret}")
     private String jwtSecret;
 
+    @Value("${jwt.issuer:user-service}")
+    private String jwtIssuer;
+
     @Value("${FRONTEND_ORIGIN:http://localhost:5173}")
     private String frontendOrigin;
 
@@ -91,6 +94,7 @@ public class SecurityConfig {
 
     @Bean
     public JwtEncoder jwtEncoder() {
+        validateJwtConfiguration();
         SecretKeySpec key = new SecretKeySpec(
                 jwtSecret.getBytes(StandardCharsets.UTF_8), "HmacSHA256");
         return new NimbusJwtEncoder(new ImmutableSecret<>(key));
@@ -98,11 +102,21 @@ public class SecurityConfig {
 
     @Bean
     public JwtDecoder jwtDecoder() {
+        validateJwtConfiguration();
         SecretKeySpec key = new SecretKeySpec(
                 jwtSecret.getBytes(StandardCharsets.UTF_8), "HmacSHA256");
         return NimbusJwtDecoder.withSecretKey(key)
                 .macAlgorithm(MacAlgorithm.HS256)
                 .build();
+    }
+
+    private void validateJwtConfiguration() {
+        if (jwtSecret == null || jwtSecret.length() < 32) {
+            throw new IllegalStateException("JWT_SECRET must be configured with at least 32 characters");
+        }
+        if (jwtIssuer == null || jwtIssuer.isBlank()) {
+            throw new IllegalStateException("JWT_ISSUER must be configured");
+        }
     }
 
     /**

@@ -1,0 +1,72 @@
+services:
+  user-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_USER: ${POSTGRES_ADMIN_USER:?Set POSTGRES_ADMIN_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PASSWORD:?Set POSTGRES_ADMIN_PASSWORD}
+      USER_DB_NAME: ${USER_DB_NAME:?Set USER_DB_NAME}
+      USER_DB_USER: ${USER_DB_USER:?Set USER_DB_USER}
+      USER_DB_PASSWORD: ${USER_DB_PASSWORD:?Set USER_DB_PASSWORD}
+    volumes:
+      - user_data:/var/lib/postgresql/data
+      - ./postgres-init.sh:/docker-entrypoint-initdb.d/01-init.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks: [backend]
+    mem_limit: 256m
+    logging: &default-logging
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+  user-service:
+    image: ${USER_IMAGE_REPOSITORY:-saiedalmasud1/user-service}:${USER_IMAGE_TAG:?Set USER_IMAGE_TAG}
+    environment:
+      SERVER_PORT: 8081
+      DB_URL: ${USER_DB_URL:?Set USER_DB_URL}
+      DB_USER: ${USER_DB_USER:?Set USER_DB_USER}
+      DB_PASSWORD: ${USER_DB_PASSWORD:?Set USER_DB_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET}
+      JWT_ISSUER: ${JWT_ISSUER:-user-service}
+      JWT_ACCESS_EXPIRY: ${JWT_ACCESS_EXPIRY:-3600}
+      JWT_REFRESH_EXPIRY: ${JWT_REFRESH_EXPIRY:-604800}
+      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:?Set FRONTEND_ORIGIN}
+    depends_on:
+      user-db:
+        condition: service_healthy
+    expose: ["8081"]
+    restart: unless-stopped
+    networks: [backend]
+    mem_limit: 384m
+    logging: *default-logging
+
+  frontend:
+    image: ${FRONTEND_IMAGE_REPOSITORY:-saiedalmasud1/ecommerce-frontend}:${FRONTEND_IMAGE_TAG:?Set FRONTEND_IMAGE_TAG}
+    environment:
+      FRIEND_PRODUCT_UPSTREAM: ${FRIEND_PRODUCT_UPSTREAM:?Set FRIEND_PRODUCT_UPSTREAM}
+      FRIEND_CART_UPSTREAM: ${FRIEND_CART_UPSTREAM:?Set FRIEND_CART_UPSTREAM}
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/templates/default.conf.template:ro
+      - ./nginx/proxy_params:/etc/nginx/proxy_params:ro
+    depends_on:
+      user-service:
+        condition: service_healthy
+    restart: unless-stopped
+    networks: [backend]
+    mem_limit: 128m
+    logging: *default-logging
+
+volumes:
+  user_data:
+
+networks:
+  backend:
+    driver: bridge
