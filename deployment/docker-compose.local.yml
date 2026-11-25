@@ -1,0 +1,126 @@
+services:
+  user-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: user_db
+      POSTGRES_USER: ${USER_DB_USER:?Set USER_DB_USER}
+      POSTGRES_PASSWORD: ${USER_DB_PASSWORD:?Set USER_DB_PASSWORD}
+    volumes:
+      - user_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  product-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: product_db
+      POSTGRES_USER: ${PRODUCT_DB_USER:?Set PRODUCT_DB_USER}
+      POSTGRES_PASSWORD: ${PRODUCT_DB_PASSWORD:?Set PRODUCT_DB_PASSWORD}
+    volumes:
+      - product_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  cart-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: cart_db
+      POSTGRES_USER: ${CART_DB_USER:?Set CART_DB_USER}
+      POSTGRES_PASSWORD: ${CART_DB_PASSWORD:?Set CART_DB_PASSWORD}
+    volumes:
+      - cart_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  user-service:
+    build:
+      context: ../user-service
+      dockerfile: Dockerfile
+    environment:
+      SERVER_PORT: 8081
+      DB_URL: jdbc:postgresql://user-db:5432/user_db
+      DB_USER: ${USER_DB_USER:?Set USER_DB_USER}
+      DB_PASSWORD: ${USER_DB_PASSWORD:?Set USER_DB_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET}
+      JWT_ISSUER: ${JWT_ISSUER:-user-service}
+      JWT_ACCESS_EXPIRY: ${JWT_ACCESS_EXPIRY:-3600}
+      JWT_REFRESH_EXPIRY: ${JWT_REFRESH_EXPIRY:-604800}
+      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost:8080}
+    depends_on:
+      user-db:
+        condition: service_healthy
+    expose: ["8081"]
+    restart: unless-stopped
+
+  product-service:
+    build:
+      context: ../product-service
+      dockerfile: Dockerfile
+    environment:
+      SERVER_PORT: 8082
+      DB_URL: jdbc:postgresql://product-db:5432/product_db
+      DB_USER: ${PRODUCT_DB_USER:?Set PRODUCT_DB_USER}
+      DB_PASSWORD: ${PRODUCT_DB_PASSWORD:?Set PRODUCT_DB_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET}
+      JWT_ISSUER: ${JWT_ISSUER:-user-service}
+      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost:8080}
+    depends_on:
+      product-db:
+        condition: service_healthy
+    expose: ["8082"]
+    restart: unless-stopped
+
+  cart-service:
+    build:
+      context: ../cart-service
+      dockerfile: Dockerfile
+    environment:
+      SERVER_PORT: 8083
+      DB_URL: jdbc:postgresql://cart-db:5432/cart_db
+      DB_USER: ${CART_DB_USER:?Set CART_DB_USER}
+      DB_PASSWORD: ${CART_DB_PASSWORD:?Set CART_DB_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET}
+      JWT_ISSUER: ${JWT_ISSUER:-user-service}
+      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost:8080}
+      PRODUCT_SERVICE_URL: http://product-service:8082
+      PRODUCT_CONNECT_TIMEOUT_MS: ${PRODUCT_CONNECT_TIMEOUT_MS:-2000}
+      PRODUCT_READ_TIMEOUT_MS: ${PRODUCT_READ_TIMEOUT_MS:-3000}
+    depends_on:
+      cart-db:
+        condition: service_healthy
+      product-service:
+        condition: service_healthy
+    expose: ["8083"]
+    restart: unless-stopped
+
+  api-gateway:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile.gateway
+    ports:
+      - "${GATEWAY_PORT:-8080}:80"
+    depends_on:
+      user-service:
+        condition: service_healthy
+      product-service:
+        condition: service_healthy
+      cart-service:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  user_data:
+  product_data:
+  cart_data:
